@@ -217,6 +217,8 @@ jobs:
              # Build with the Clang that CentOS ships, with its OpenMP runtime,
              # which vector search (FAISS) needs. EPEL's clang15 has none.
              scripts/setup-centos9.sh install_clang_with_openmp; export CC=clang; export CXX=clang++; CUDA_FLAGS="-ccbin $(command -v clang++)";
+             # TEMPORARY: check whether frame pointers fix the velox_fixed_point_test crash.
+             export CXXFLAGS="${CXXFLAGS:-} -fno-omit-frame-pointer"
           fi
           source /opt/rh/gcc-toolset-14/enable
           g++ --version
@@ -231,6 +233,11 @@ jobs:
             EXTRA_CMAKE_FLAGS="${EXTRA_CMAKE_FLAGS[*]}" \
             TARGETS="$BUILD_TARGETS" \
             2>&1 | tee /tmp/build-output.log
+          # TEMPORARY: get a backtrace if velox_fixed_point_test still crashes.
+          if [[ "${USE_CLANG}" = "true" ]]; then
+            dnf install -y -q gdb
+            gdb -batch -ex run -ex bt --args _build/release/velox/exec/tests/velox_fixed_point_test || true
+          fi
 
       - name: Extract build errors
         id: build-errors
